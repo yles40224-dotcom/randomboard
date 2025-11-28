@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>三輪盤隨機組合 - 二次元遊戲機風格</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#1a1a2e;
+      --card:#162447;
+      --accent:#e43f5a;
+      --muted:#8d99ae;
+      --text:#f0f0f0;
+      --highlight:#f7b32b;
+    }
+    *{box-sizing:border-box;font-family:'Press Start 2P', monospace;}
+    body{margin:0;min-height:100vh;background:linear-gradient(135deg,#1a1a2e,#0f3460);display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text);}
+    .wrap{width:100%;max-width:980px;}
+    .card{background:var(--card);border-radius:16px;padding:20px;box-shadow:0 0 20px var(--accent), 0 0 40px var(--accent) inset;margin-bottom:20px;border:3px solid var(--accent);position:relative;}
+    .resultDisplay{margin-bottom:16px;padding:12px;border-radius:12px;background:#0f1830;border:2px solid var(--highlight);text-align:center;font-weight:700;font-size:18px;color:var(--highlight);text-shadow:0 0 8px var(--highlight);}
+    .wheels{display:flex;gap:16px;margin-top:10px;perspective:1000px;}
+    .wheel{flex:1;background:#0f1830;border-radius:12px;padding:16px;text-align:center;border:2px solid var(--accent);overflow:hidden;position:relative;height:150px;}
+    .slot{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;transition:transform 0.3s ease-out;}
+    .slot .item{padding:12px 18px;margin:6px 0;border-radius:8px;background:linear-gradient(180deg,#1a1a2e,#0f3460);box-shadow:0 0 10px var(--accent);font-size:18px;font-weight:700;color:var(--highlight);min-width:130px;text-align:center;text-shadow:0 0 6px var(--accent);}
+    .btns{display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap;}
+    button{cursor:pointer;padding:12px 16px;border-radius:8px;border:0;font-weight:700;background:#0f1830;color:var(--highlight);box-shadow:0 0 10px var(--accent);font-family:'Press Start 2P', monospace;text-shadow:0 0 5px var(--accent);transition:0.2s all;}
+    button:hover{box-shadow:0 0 15px var(--highlight),0 0 25px var(--accent) inset;transform:scale(1.05);}
+    .small{padding:10px 12px;font-size:12px;}
+    .timer{margin-top:12px;font-size:16px;font-weight:700;color:var(--highlight);text-align:center;text-shadow:0 0 6px var(--accent);}
+    @media (max-width:720px){.wheels{flex-direction:column}.slot{height:100px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="resultDisplay" id="wheelResult">等待旋轉結果...</div>
+      <div class="wheels" id="wheels">
+        <div class="wheel">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">誰</div>
+          <div class="slot" id="slotA"><div class="item">A1</div></div>
+        </div>
+        <div class="wheel">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">在哪裡</div>
+          <div class="slot" id="slotB"><div class="item">B1</div></div>
+        </div>
+        <div class="wheel">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">做甚麼</div>
+          <div class="slot" id="slotC"><div class="item">C1</div></div>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="spin small" id="btnSpin">Spin All</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="timer" id="independentTimer">倒計時: 30</div>
+      <div class="btns">
+        <button id="startTimer" class="small">開始倒計時</button>
+        <button id="resetTimer" class="small">重置倒計時</button>
+        <button id="toggleSound" class="small">開啟聲音</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="timerSound" src="https://actions.google.com/sounds/v1/clock/clock_tick.ogg" preload="auto"></audio>
+  <audio id="lofiMusic" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="auto"></audio>
+  <audio id="endSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+  <script>
+    const slotA = document.getElementById('slotA');
+    const slotB = document.getElementById('slotB');
+    const slotC = document.getElementById('slotC');
+    const btnSpin = document.getElementById('btnSpin');
+    const wheelResult = document.getElementById('wheelResult');
+    const timerSound = document.getElementById('timerSound');
+    const toggleSoundBtn = document.getElementById('toggleSound');
+    const lofiMusic = document.getElementById('lofiMusic');
+    const endSound = document.getElementById('endSound');
+
+    let soundEnabled = true;
+
+    toggleSoundBtn.addEventListener('click', ()=>{
+      soundEnabled = !soundEnabled;
+      toggleSoundBtn.textContent = soundEnabled ? '開啟聲音' : '關閉聲音';
+      if(soundEnabled && !lofiMusic.playing){ lofiMusic.play().catch(()=>{}); } else { lofiMusic.pause(); }
+    });
+
+    const A = ['米老鼠','花媽','巴斯光年','哆啦A夢','皮卡丘','孫悟空','櫻木花道','凱蒂斯','派大星','蜘蛛人','狐尼克','小熊維尼','黃世勳','吳坤璋','兩津勘吉','無臉男','Hello kitty','肥嘟嘟佐衛門','聖誕老公公'];
+    const B = ['山上','火山口','森林','雪地','溪邊','露營地','沙灘','溫泉','湖邊','洞穴','草原','瀑布','花園','農田','教室','中國醫','操場','圖書館','海底'];
+    const C = ['念書','跳舞','喝酒','彈吉他','打羽球','野餐','看電影','唱歌','畫畫','打電動','游泳','喝茶','玩剪刀石頭布','認中藥','買菜','飆車','買股票','競選總統','抗議'];
+
+    function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+    function showSlot(slotEl, text){ slotEl.innerHTML = '<div class="item">'+text+'</div>'; }
+
+    async function spinWheel(which, arr, minMs, maxMs){
+      const slotEl = which==='A'?slotA:which==='B'?slotB:slotC;
+      const interval = setInterval(()=>{ showSlot(slotEl, randomChoice(arr)); }, 80);
+      return new Promise(resolve=>{
+        const duration=Math.floor(Math.random()*(maxMs-minMs))+minMs;
+        setTimeout(()=>{
+          clearInterval(interval);
+          const pick=randomChoice(arr);
+          showSlot(slotEl,pick);
+          resolve(pick);
+        }, duration);
+      });
+    }
+
+    btnSpin.addEventListener('click', async ()=>{
+      const pA=spinWheel('A',A,900,1700);
+      const pB=spinWheel('B',B,1100,2000);
+      const pC=spinWheel('C',C,1300,2300);
+      const [rA,rB,rC]=await Promise.all([pA,pB,pC]);
+      wheelResult.textContent = `結果: ${rA} — ${rB} — ${rC}`;
+    });
+
+    const independentTimerEl = document.getElementById('independentTimer');
+    const startTimerBtn = document.getElementById('startTimer');
+    const resetTimerBtn = document.getElementById('resetTimer');
+    let countdown = 30;
+    let timerInterval = null;
+
+    function updateTimerDisplay(){ independentTimerEl.textContent = '倒計時: '+countdown; }
+
+    startTimerBtn.addEventListener('click', ()=>{
+      clearInterval(timerInterval);
+      countdown = 30;
+      updateTimerDisplay();
+      if(soundEnabled){
+        lofiMusic.loop = true;
+        lofiMusic.play().catch(()=>{});
+        timerSound.play().catch(()=>{});
+      }
+      timerInterval = setInterval(()=>{
+        countdown--;
+        updateTimerDisplay();
+        if(countdown>0 && soundEnabled){
+          timerSound.currentTime = 0;
+          timerSound.play().catch(()=>{});
+        }
+        if(countdown<=0){
+          clearInterval(timerInterval);
+          independentTimerEl.textContent='時間到!';
+          if(soundEnabled){ lofiMusic.pause(); endSound.play().catch(()=>{}); }
+        }
+      },1000);
+    });
+
+    resetTimerBtn.addEventListener('click', ()=>{
+      clearInterval(timerInterval);
+      countdown = 30;
+      updateTimerDisplay();
+      lofiMusic.pause();
+    });
+  </script>
+</body>
+</html>
